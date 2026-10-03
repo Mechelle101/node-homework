@@ -7,6 +7,13 @@ const sampleFilePath = path.join(__dirname, 'sample-files', 'sample.txt');
 fs.writeFileSync(sampleFilePath, "Hello, async world!");
 
 // 1. Callback style
+fs.readFile(sampleFilePath, 'utf8', (err, data) => {
+  if(err) {
+    console.log("Callback read:", err.message);
+    return;
+  }
+  console.log("Callback read:", data);
+});
 
 
   // Callback hell example (test and leave it in comments):
