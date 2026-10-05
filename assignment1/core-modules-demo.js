@@ -7,10 +7,19 @@ if (!fs.existsSync(sampleFilesDir)) {
   fs.mkdirSync(sampleFilesDir, { recursive: true });
 }
 
-// OS module
+// OS module (look back at this for task 5...)
+console.log("Platform:", os.platform());
 
+const cpuList = os.cpus();
+const firstCpu = cpuList[0];
+const cpuName = firstCpu.model;
+console.log("CPU:", cpuName);
+
+console.log("Total Memory:", os.totalmem());
 
 // Path module
+const joinedPath = path.join("Joined path:", sampleFilesDir, "system-folder", "systemFile.txt");
+console.log(joinedPath);
 
 // fs.promises API
 
