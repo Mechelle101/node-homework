@@ -1,0 +1,2 @@
+Step 1: file was created
+Step 2: line appended
