@@ -52,8 +52,14 @@ const server = http.createServer((req, res) => {
         }),
       );
     });
+   } else {
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(
+      JSON.stringify({
+        message: "That route is not available.",
+      }),
+    );
    }
-
 });
 
 // Start Server
