@@ -1,16 +1,24 @@
 // Imports
 const express = require("express");
+const userRoutes = require("./routes/userRoutes");
+const notFound = require("./middleware/not-found");
+const errorHandler = require("./middleware/error-handler");
 const timeRouter = require("./routes/timeRoutes");
 
 // App & Middleware
 const app = express();
+
+// temporary in memory database
+global.user_id = null;
+global.users = [];
+global.tasks = [];
+
+// body parsing must come before routes
 app.use(express.json());
-// place this after because they are processed in order
-// express.json() has the parse the body before the request reaches echoBody
 
 // Routes
 // Router must come after express.json() — middleware runs in order,
-// so the body has to be parsed before the request reaches echoBody
+// express.json() must come before the routes so that erq.body exists in the controllers
 app.use("/api", timeRouter);
 app.get("/", (req, res) => {
     res.send("Hello, World!");
@@ -21,11 +29,11 @@ app.post("/testpost", (req, res) => {
     });
 });
 
-app.all("/{*splat}", (req, res) => {
-    res.status(404).json({
-        message: `No route found for ${req.method} ${req.path}`,
-    });
-});
+app.use("/api/users", userRoutes);
+
+// not found error handling must be last
+app.use(notFound);
+app.use(errorHandler);
 
 // Start Server
 const port = process.env.PORT || 3000;
