@@ -1,9 +1,24 @@
+const { userSchema } = require("../validation/userSchema");
 
 // Register
 // the register route handler (req: what the client sent, res: my reply)
 const register = (req, res) => {
-    // destructuring the following...
-    const { name, email, password } = req.body;
+
+    // first validate, if theres not a request body...
+    if(!req.body) req.body = {};
+    const { error, value } = userSchema.validate(req.body, { abortEarly: false });
+    if(error) return res.status(400).json({message: error.message});
+
+    // destructuring the following... adding value.email, value.name, value.password. 
+    const { name, email, password } = value;
+    
+    // reject email thats already registered, needs an email before it can check
+    // needs to come before the user push, it would be too late to validate
+    const existingUser = global.users.find((user) => user.email === email);
+    if(existingUser) {
+        return res.status(400).json({ message: "That email is already registered." });
+    }
+
     // building the user obj...name is shorthand for name: name etc
     const newUser = { name, email, password };
 
@@ -16,6 +31,9 @@ const register = (req, res) => {
 
 // Logon
 const logon = (req, res) => {
+    // make sure there is always a request body to read from
+    if(!req.body) req.body = {};
+
     // gets the values the user typed to login
     const { email, password } = req.body;
     // Searches the array and returns the first user where the test is true
