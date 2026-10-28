@@ -1,3 +1,4 @@
+const { taskSchema, patchTaskSchema } = require("../validation/taskSchema");
 
 // place holder functions
 // --- Task ID Counter ---
@@ -15,16 +16,16 @@ const taskCounter = (() => {
 exports.create = async (req, res) => {
     if (!req.body) req.body = {};
 
-    const newTask = {
-        id: taskCounter(),
-        title: req.body.title,
-        // if the client didn't send isCompleted this becomes false
-        isCompleted: req.body.isCompleted ?? false,
-        userId: global.usee_id.email, //ownership, logged in user obj
-    };
+    // validate first
+    const { error, value } = taskSchema.validate(req.body, { abortEarly: false });
+    if(error) return res.status(400).json({ message: error.message });
+
+    // building the task from the validated value, stamped with the owners email
+    const newTask = { id: taskCounter(), userId: global.user_id.email, ...value };
 
     global.tasks.push(newTask);
-    // don't send the userID, getting other properties into a new obj
+
+    // sending a copy without a userId
     const { userId, ...sanitizedTask } = newTask;
     res.status(201).json(sanitizedTask);
 };
