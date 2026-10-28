@@ -31,8 +31,24 @@ exports.create = async (req, res) => {
 };
 
 exports.index = async (req, res) => {
-    res.status(501).json({ message: "index...not yet" });
+    // Keep only the tasks owned by the logged-in user
+    const userTasks = global.tasks.filter(
+        (task) => task.userId === global.user_id.email
+    );
+
+    // returns 404, no task for this user
+    if(userTasks.length === 0) {
+        return res.status(404).json({ message: "No task found for this user." });
+    }
+    // pulling out the userId and returning the rest into a new array
+    const sanitizedTasks = userTasks.map((task) => {
+        const { userId, ...sanitizedTask } = task;
+        return sanitizedTask;
+    });
+
+    res.status(200).json(sanitizedTasks);
 };
+
 exports.show = async (req, res) => {
     res.status(501).json({ message: "show...not yet" });
 };
