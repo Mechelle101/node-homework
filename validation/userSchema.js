@@ -10,8 +10,9 @@ const userSchema = Joi.object({
     .trim()
     .min(8)
     .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).+$/)
+    .required()
     .messages({
-        "string.patter.base":
+        "string.pattern.base":
         "Password must be at least 8 characters long and include upper and lowercase letters, a number, and a special character.",
     }),
 });
