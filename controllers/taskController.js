@@ -1,6 +1,5 @@
 const { taskSchema, patchTaskSchema } = require("../validation/taskSchema");
 
-// place holder functions
 // --- Task ID Counter ---
 // helper function to return next task id when called
 const taskCounter = (() => {
@@ -98,11 +97,35 @@ exports.update = async (req, res) => {
     // merge validated patch field into stored task
     Object.assign(task, value);
 
-    // send a copy without the id
+    // send a copy without the userId
     const { userId, ...sanitizedTask } = task;
     res.status(200).json(sanitizedTask);
 };
 
 exports.deleteTask = async (req, res) => {
-    
+    // convert route params from string to number
+    const taskId = parseInt(req.params?.id);
+    if(!taskId) {
+        return res.status(400).json({ message: "The task ID was not valid." });
+    }
+
+    // find the position of the task matching id and user email
+    const taskIndex = global.tasks.findIndex(
+        (task) => task.id === taskId && task.userId === global.user_id.email
+    );
+
+    // findIndex return -1 when nothing matches: 404
+    if(taskIndex === -1) {
+        return res.status(404).json({ message: "That task was not found." });
+    }
+
+    // copy the task without userId before removing it
+    const { userId, ...sanitizedTask } = global.tasks[taskIndex];
+
+    // remove one item at that position
+    global.tasks.splice(taskIndex, 1);
+
+    // send back a copy of what was deleted
+    res.status(200).json(sanitizedTask);
+
 };
