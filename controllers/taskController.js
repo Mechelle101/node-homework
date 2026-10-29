@@ -50,8 +50,29 @@ exports.index = async (req, res) => {
 };
 
 exports.show = async (req, res) => {
-    res.status(501).json({ message: "show...not yet" });
+    // route params arrive as strings, convert to a number
+    const taskId = parseInt(req.params?.id);
+
+    // not a valid number: 400
+    if(!taskId) {
+        return res.status(400).json({ message: "Task ID passed is not valid." });
+    }
+
+    // find a task matching both the id and logged-in users email
+    const task = global.tasks.find(
+        (task) => task.id === taskId && task.userId === global.user_id.email
+    );
+
+    // not a match for this user: 404
+    if(!task) {
+        return res.status(404).json({ message: "That task was not found." });
+    }
+
+    // send a copy without userId
+    const { userId, ...sanitizedTask } = task;
+    res.status(200).json(sanitizedTask);
 };
+
 exports.update = async (req, res) => {
     res.status(501).json({ message: "update...not yet" });
 };
