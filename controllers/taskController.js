@@ -74,9 +74,35 @@ exports.show = async (req, res) => {
 };
 
 exports.update = async (req, res) => {
-    res.status(501).json({ message: "update...not yet" });
-};
-exports.deleteTask = async (req, res) => {
-    res.status(501).json({ message: "deleteTask...not yet" });
+    // check Joi gets the obj
+    if (!req.body) req.body = {};
+
+    // validate the patch body
+    const { error, value } = patchTaskSchema.validate(req.body, { abortEarly: false });
+    if(error) return res.status(400).json({ message: error.message });
+
+    // convert route params from string to num.
+    const taskId = parseInt(req.params?.id);
+    if(!taskId) {
+        return res.status(400).json({ message: "The task ID was not valid." });
+    }
+
+    // find task matching id and user email
+    const task = global.tasks.find(
+        (task) => task.id === taskId && task.userId === global.user_id.email
+    );
+    if(!task) {
+        return res.status(404).json({ message: "The task was not found." });
+    }
+
+    // merge validated patch field into stored task
+    Object.assign(task, value);
+
+    // send a copy without the id
+    const { userId, ...sanitizedTask } = task;
+    res.status(200).json(sanitizedTask);
 };
 
+exports.deleteTask = async (req, res) => {
+    
+};
