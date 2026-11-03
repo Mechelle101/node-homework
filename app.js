@@ -83,7 +83,7 @@ async function shutdown(code = 0) {
 
         // Close all PostgreSQL connections after the HTTP server has stopped.
         await pool.end();
-        console.log("HTTP server closed.")
+        console.log("PostgreSQL connection pool closed.")
     } catch (err) {
         console.error("Error during shutdown:", err);
         code = 1;
