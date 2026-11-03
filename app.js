@@ -11,11 +11,8 @@ const pool = require("./db/pg-pool");
 // App & Middleware
 const app = express();
 
-// temporary in memory database
-// REMOVE THESE IN A BIT...
+// logged-in user id
 global.user_id = null;
-global.users = [];
-global.tasks = [];
 
 // body parsing must come before routes
 app.use(express.json());
