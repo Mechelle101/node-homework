@@ -7,6 +7,7 @@ const timeRouter = require("./routes/timeRoutes");
 const authMiddleware = require("./middleware/auth");
 const taskRouter = require("./routes/taskRoutes");
 const pool = require("./db/pg-pool");
+const prisma = require("./db/prisma");
 
 // App & Middleware
 const app = express();
@@ -33,8 +34,8 @@ app.post("/testpost", (req, res) => {
 // Health check route at GET /health
 app.get("/health", async (req, res) => {
     try {
-        await pool.query("SELECT 1");//just checking if there is anything returned
-        res.json({ status: "ok", db: "connected" });//sending 200 if that was ok
+        await prisma.$queryRaw`SELECT 1`;
+        res.json({ status: "ok", db: "connected" });
     } catch (err) {
         res.status(500).json({ message: `db not connected, error: ${ err.message }` });
     }
@@ -63,7 +64,7 @@ const server = app.listen(port, (error) => {
     console.log(`Server is listening on port ${port}...`);
 });
 
-// Shutdown (Task 9)
+// Shutdown
 let isShuttingDown = false;
 
 async function shutdown(code = 0) {
@@ -84,6 +85,10 @@ async function shutdown(code = 0) {
         // Close all PostgreSQL connections after the HTTP server has stopped.
         await pool.end();
         console.log("PostgreSQL connection pool closed.")
+
+        // close Prisma connection pool too. 
+        await prisma.$disconnect();
+                console.log("Prisma disconnected");
     } catch (err) {
         console.error("Error during shutdown:", err);
         code = 1;
