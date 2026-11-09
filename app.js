@@ -6,7 +6,6 @@ const errorHandler = require("./middleware/error-handler");
 const timeRouter = require("./routes/timeRoutes");
 const authMiddleware = require("./middleware/auth");
 const taskRouter = require("./routes/taskRoutes");
-const pool = require("./db/pg-pool");
 const prisma = require("./db/prisma");
 
 // App & Middleware
@@ -37,7 +36,7 @@ app.get("/health", async (req, res) => {
         await prisma.$queryRaw`SELECT 1`;
         res.json({ status: "ok", db: "connected" });
     } catch (err) {
-        res.status(500).json({ message: `db not connected, error: ${ err.message }` });
+        res.status(500).json({ status: 'error', db: 'not connected', error: err.message });
     }
 });
 
@@ -82,11 +81,7 @@ async function shutdown(code = 0) {
         });
         console.log("HTTP server closed.");
 
-        // Close all PostgreSQL connections after the HTTP server has stopped.
-        await pool.end();
-        console.log("PostgreSQL connection pool closed.")
-
-        // close Prisma connection pool too. 
+        // close Prisma connection 
         await prisma.$disconnect();
                 console.log("Prisma disconnected");
     } catch (err) {
