@@ -3,7 +3,7 @@ const crypto = require("crypto");
 const util = require("util");
 const scrypt = util.promisify(crypto.scrypt);
 const { userSchema } = require("../validation/userSchema");
-const pool = require("../db/pg-pool");
+const prisma = require("../db/prisma");
 
 // Password helpers
 // creates random salt, hashes the password, returns "salt:hash"
@@ -38,28 +38,25 @@ const register = async (req, res, next) => {
     const hashedPassword = await hashPassword(password);
 
     // save the user to the users table
-    let result;
+    let user = null;
     try {
-        result = await pool.query(
-            `INSERT INTO users (email, name, hashed_password)
-             VALUES ($1, $2, $3) RETURNING id, email, name`,
-            [email, name, hashedPassword]
-        );  
-    } catch (e) {
-        // 23505 = the UNIQUE rule was broken, so this email is already registered
-        if (e.code === "23505") {
+        user = await prisma.user.create({
+            data: { name, email, hashedPassword },
+            select: { name: true, email: true, id: true }//only these fields come back
+        });  
+    } catch (err) {
+        // P2002 = Prisma code for UNIQUE rule was broken
+        if (err.name === "PrismaClientKnownRequestError" && err.code === "P2002") {
             return res.status(400).json({ message: "That email is already registered." });
         }
         // any other database error goes to the global error handler
-        return next(e);
+        return next(err);
     }
-    // new users row
-    const newUser = result.rows[0];
 
     // Mark the user as logged in
-    global.user_id = newUser.id;
+    global.user_id = user.id;
     // 201 created response with name and email
-    res.status(201).json({ name: newUser.name, email: newUser.email });
+    res.status(201).json({ name: user.name, email: user.email });
 };
 
 // Logon - added async to be able to use await
@@ -67,15 +64,22 @@ const logon = async (req, res) => {
     // make sure there is always a request body to read from
     if(!req.body) req.body = {};
     // gets the values the user typed to login
-    const { email, password } = req.body;
+    let { email, password } = req.body;
+
+    // auth failed if no email or PW found
+    if(typeof email !== "string" || !password) {
+        return res.status(401).json({ message: "Authentication failed." });
+    }
+
+    // convert to lowercase
+    email = email.toLowerCase();
 
     // find the user in the DB
-    const result = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
-    const foundUser = result.rows[0];
+    const foundUser = await prisma.user.findUnique({ where: { email } });
     
     // only compares if a user was found and a PW was sent
     const goodCredentials = 
-        foundUser && password && (await comparePassword(password, foundUser.hashed_password));
+        foundUser && password && (await comparePassword(password, foundUser.hashedPassword));
 
     // no match: 401/unauthorized and return to stop running
     if(!goodCredentials) {
