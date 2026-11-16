@@ -14,7 +14,7 @@ exports.create = async (req, res, next) => {
     try{
         task = await prisma.task.create({ 
             data: { ...value, userId: global.user_id },
-            select: { title: true, isCompleted: true, id: true }
+            select: { id: true, title: true, isCompleted: true, priority: true, createdAt: true }
         });
     } catch (err) {
         // P2003 = FK failed: no user exist with the the userId
@@ -90,7 +90,7 @@ exports.update = async (req, res, next) => {
             id: taskId,
             userId: global.user_id,
         },
-        select: { title: true, isCompleted: true, id: true }
+        select: { id: true, title: true, isCompleted: true, priority: true, createdAt: true }
      });
     } catch(err) {
         // P2025 = no record matched the where
@@ -115,7 +115,7 @@ exports.deleteTask = async (req, res, next) => {
     try{ 
         task = await prisma.task.delete({
             where: { id: taskId, userId: global.user_id },
-            select: { title: true, isCompleted: true, id: true }
+            select: { id: true, title: true, isCompleted: true, priority: true, createdAt: true }
         });
     } catch(err) {
         // P2025 - there is nothing to delete for this user
