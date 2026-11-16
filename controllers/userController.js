@@ -98,4 +98,45 @@ const logoff = (req, res) => {
     res.status(200).json({ message: "Logged off." });
 };
 
-module.exports = { register, logon, logoff };
+// show one user, up to 5 of their incomplete tasks (eager loading)
+const show = async (req, res) => {
+    // route params arrive as strings so convert to a number
+    const userId = parseInt(req.params?.id);
+
+    // valid number check - 400
+    if(isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid user ID." });
+    }
+
+    // auth - user can only view their own record: 403
+    if (userId !== global.user_id) {
+        // 403 could indicate the user exists, should use a 404 not found instead! 
+        return res.status(403).json({ message: "Forbidden." });
+    }
+
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+            id: true,
+            name: true,
+            email: true,
+            createdAt: true,
+            // hashedPassword not included
+            Task: {
+                where: { isCompleted: false },   // only incomplete tasks
+                select: { id: true, title: true, priority: true, createdAt: true },
+                orderBy: { createdAt: "desc" },  // newest first
+                take: 5,                         // at most 5
+            },
+        },
+    });
+
+    // user was deleted while still logged in: 404
+    if (!user) {
+        return res.status(404).json({ message: "User not found." });
+    }
+
+    res.status(200).json(user);
+};
+
+module.exports = { register, logon, logoff, show };

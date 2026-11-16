@@ -33,7 +33,20 @@ exports.index = async (req, res) => {
         where: {
             userId: global.user_id, //gets only the task for the user
         },
-        select: { title: true, isCompleted: true, id: true }
+        select: { 
+            id: true,
+            title: true, 
+            isCompleted: true,  
+            priority: true,
+            createdAt: true,
+            // fetch the related user in the same request
+            User: {
+                select: {
+                    name: true,
+                    email: true,
+                },
+            },
+        },
     });
 
     // returns 404, no task for this user
@@ -56,7 +69,19 @@ exports.show = async (req, res) => {
     // find the task id and logged in user
     const task = await prisma.task.findUnique({
         where: { id: taskId, userId: global.user_id },
-        select: { title: true, isCompleted: true, id: true }
+        select: { 
+            id: true, 
+            title: true, 
+            isCompleted: true, 
+            priority: true, 
+            createdAt: true,
+            User: {
+                select: {
+                    name: true,
+                    email: true,
+                },
+            },
+        },
     });
 
     // not a match for this user: 404
