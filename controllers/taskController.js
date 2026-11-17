@@ -1,5 +1,72 @@
 const { taskSchema, patchTaskSchema } = require("../validation/taskSchema");
 const prisma = require("../db/prisma");
+const { getPagination, buildPagination } = require("../utils/pagination");
+
+// --- Index Helpers ---
+// builds the where obj for the task list from the query string
+const buildTaskWhere = (query, userId) => {
+    // only the logged in users tasks
+    const whereClause = { userId };
+
+    // find: title contains the text...
+    if(query.find) {
+        whereClause.title = {
+            contains: query.find,
+            mode: "insensitive",
+        };
+    }
+
+    // idCompleted: only true or false is allowed
+    if(query.isCompleted !== undefined) {
+        if(query.isCompleted !== "true" && query.isCompleted !== "false") {
+            return { error: "isCompleted must be true or false." };
+        }
+        // turn the string "true"/"false" into a boolean
+        whereClause.isCompleted = query.isCompleted === "true";
+    }
+
+    // priority: must be one of the three values
+    if(query.priority !== undefined) {
+        if(!["low", "medium", "high"].includes(query.priority)) {
+            return { error: "priority must be low, medium, or high." };
+        }
+        whereClause.priority = query.priority;
+    }
+
+    // min_date / max_date - one created at obj holds both limits
+    if(query.min_date || query.max_date) {
+        whereClause.createdAt = {};
+
+        if(query.min_date) {
+            const minDate = new Date(query.min_date);
+            if(isNaN(minDate.getTime())) {
+                return { error: "min_date is not a valid date." };
+            }
+            whereClause.createdAt.gte = minDate;  //on or after
+        }
+
+        if(query.max_date) {
+            const maxDate = new Date(query.max_date) ;
+            if(isNaN(maxDate.getTime())) {
+                return { error: "max_date is not a valid date." };
+            }
+            whereClause.createdAt.lte = maxDate; //on or before
+        }
+    }
+    return { whereClause };
+}
+
+// builds the order by obj from the query string
+const getOrderBy = (query) => {
+    const validSortFields = ["title", "priority", "createdAt", "id", "isCompleted"];
+    const sortBy = query.sortBy || "createdAt";
+    const sortDirection = query.sortDirection === "asc" ? "asc" : "desc";
+
+    if(validSortFields.includes(sortBy)) {
+        return { [sortBy]: sortDirection };
+    }
+    return { createdAt: "desc" }; //the default fallback
+};
 
 // --- Task Controller ---
 // create with ownership
@@ -28,33 +95,57 @@ exports.create = async (req, res, next) => {
 };
 
 exports.index = async (req, res) => {
+    // pagination - read page and limit from the query
+    const paging = getPagination(req.query);
+    if(paging.error) {
+        return res.status(400).json({ message: paging.error });
+    }
+    const { page, limit, skip } = paging;
+
+    // filters - build the where obj 
+    const filters = buildTaskWhere(req.query, global.user_id);
+    if(filters.error) {
+        return res.status(400).json({ message: filters.error });
+    }
+    const { whereClause } = filters;
+    
     // getting only the users tasks
-    const userTasks = await prisma.task.findMany({
-        where: {
-            userId: global.user_id, //gets only the task for the user
-        },
-        select: { 
-            id: true,
-            title: true, 
-            isCompleted: true,  
-            priority: true,
-            createdAt: true,
-            // fetch the related user in the same request
-            User: {
-                select: {
-                    name: true,
-                    email: true,
+    // runs the page and count query at the same time
+    const [tasks, totalTasks] = await Promise.all([
+        prisma.task.findMany({
+            // whereClause already contains userId and filters
+            where: whereClause,
+            select: {
+                id: true,
+                title:true,
+                isCompleted: true,
+                priority: true,
+                createdAt: true,
+                // fetching the related user in the same request
+                User: {
+                    select: {
+                        name: true,
+                        email: true,
+                    },
                 },
             },
-        },
-    });
+            // pagination and sorting
+            skip: skip, //rows before the page
+            take: limit, //rows on the page
+            orderBy: getOrderBy(req.query), 
+        }),
+        prisma.task.count({ where: whereClause }),
+    ]);
 
     // returns 404, no task for this user
-    if(userTasks.length === 0) {
+    if(totalTasks === 0) {
         return res.status(404).json({ message: "No task found for this user." });
     }
 
-    res.status(200).json(userTasks);
+    res.status(200).json({
+        tasks,
+        pagination: buildPagination(page, limit, totalTasks),
+    });
 };
 
 exports.show = async (req, res) => {
