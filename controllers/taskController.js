@@ -94,6 +94,52 @@ exports.create = async (req, res, next) => {
     res.status(201).json(task);
 };
 
+// POST /api/tasks/bulk creates several tasks in one batch
+exports.bulkCreate = async (req, res, next) => {
+    if(!req.body) req.body = {};
+    const { tasks } = req.body;
+
+    if(!tasks || !Array.isArray(tasks) || tasks.length === 0) {
+        return res.status(400).json({
+            message: "Invalid request data. Expected an array of tasks."
+        });
+    }
+
+    // validate tasks before inserting
+    const validTasks = [];
+    for(const task of tasks) {
+        const { error, value } = taskSchema.validate(task);
+        if(error) {
+            return res.status(400).json({
+                error: "Validation Failed",
+                details: error.details,
+            });
+        }
+        validTasks.push({
+            title: value.title,
+            isCompleted: value.isCompleted || false,
+            priority: value.priority || "medium",
+            userId: global.user_id
+        });
+    }
+
+    try {
+        const result = await prisma.task.createMany({
+            data: validTasks,
+            skipDuplicates: false,
+        });
+
+        res.status(201).json({
+            message: "Bulk task creation successful",
+            tasksCreated: result.count,
+            totalRequested: validTasks.length
+        });
+    } catch(err) {
+        return next(err);
+    }
+};
+
+
 exports.index = async (req, res) => {
     // pagination - read page and limit from the query
     const paging = getPagination(req.query);
