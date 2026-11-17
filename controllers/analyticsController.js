@@ -114,3 +114,57 @@ exports.getUsersWithStats = async (req, res) => {
 
     res.status(200).json({ users, pagination });
 };
+
+// GET/api/analytics/tasks/search
+exports.searchTasks = async (req, res) => {
+    // Validate search query >= 2 chars
+    const searchQuery = req.query.q;
+    if (!searchQuery || searchQuery.trim().length < 2) {
+        return res.status(400).json({ 
+            message: "Search query must be at least 2 characters long" 
+        });
+    }
+
+    // limit: default 20, must be a whole number from 1 to 100
+    const limit = req.query.limit === undefined ? 20 : Number(req.query.limit);
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+        return res.status(400).json({ message: "limit must be a whole number from 1 to 100." });
+    }
+
+    // build the search patterns OUTSIDE the SQL, so they're sent as parameters
+    const searchPattern = `%${searchQuery}%`;   // contains
+    const exactMatch = searchQuery;             // exact (case-insensitive)
+    const startsWith = `${searchQuery}%`;       // starts with
+
+    // raw sql
+    const searchResults = await prisma.$queryRaw`
+        SELECT
+            t.id,
+            t.title,
+            t.is_completed as "isCompleted",
+            t.priority,
+            t.created_at as "createdAt",
+            t.user_id as "userId",
+            u.name as "user_name"
+        FROM tasks t
+        JOIN users u ON t.user_id = u.id
+        WHERE t.title ILIKE ${searchPattern} 
+            OR u.name ILIKE ${searchPattern}
+        ORDER BY 
+        CASE 
+            WHEN t.title ILIKE ${exactMatch} THEN 1
+            WHEN t.title ILIKE ${startsWith} THEN 2
+            WHEN t.title ILIKE ${searchPattern} THEN 3
+            ELSE 4
+        END,
+        t.created_at DESC
+      LIMIT ${limit}
+    `;
+
+    // results of the search term and how many come back
+    res.status(200).json({
+        results: searchResults,
+        query: searchQuery,
+        count: searchResults.length,
+    });
+};
