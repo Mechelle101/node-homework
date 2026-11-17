@@ -111,7 +111,7 @@ exports.bulkCreate = async (req, res, next) => {
         const { error, value } = taskSchema.validate(task);
         if(error) {
             return res.status(400).json({
-                error: "Validation Failed",
+                message: "Validation Failed",
                 details: error.details,
             });
         }
