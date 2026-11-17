@@ -68,6 +68,40 @@ const getOrderBy = (query) => {
     return { createdAt: "desc" }; //the default fallback
 };
 
+// build the select obj
+const buildTaskSelect = (query) => {
+    // the full select - used when no fields are requested
+    const defaultSelect = {
+        id: true,
+        title: true,
+        isCompleted: true,
+        priority: true,
+        createdAt: true,
+        User: { select: { name: true, email: true } },
+    };
+
+    if(!query.fields) return defaultSelect;
+
+    // only these can be requested
+    const allowedFields = ["title", "isCompleted", "priority", "createdAt", "User"];
+
+    // "title, priority" → ["title", "priority"], dropping anything not allowed
+    const requested = query.fields
+        .split(",")
+        .map((field) => field.trim())
+        .filter((field) => allowedFields.includes(field));
+
+    // nothing valid requested → fall back to the full select
+    if(requested.length === 0) return defaultSelect;
+
+    // id is always included, then each requested field
+    const select = { id: true };
+    for(const field of requested) {
+        select[field] = defaultSelect[field];
+    }
+    return select;
+};
+
 // --- Task Controller ---
 // create with ownership
 exports.create = async (req, res, next) => {
@@ -161,20 +195,7 @@ exports.index = async (req, res) => {
         prisma.task.findMany({
             // whereClause already contains userId and filters
             where: whereClause,
-            select: {
-                id: true,
-                title:true,
-                isCompleted: true,
-                priority: true,
-                createdAt: true,
-                // fetching the related user in the same request
-                User: {
-                    select: {
-                        name: true,
-                        email: true,
-                    },
-                },
-            },
+            select: buildTaskSelect(req.query),
             // pagination and sorting
             skip: skip, //rows before the page
             take: limit, //rows on the page

@@ -6,6 +6,7 @@ const router = express.Router();// mini-app only holding routes
 // destructuring the functions out of the exported object
 const {
     create,
+    bulkCreate,
     index,
     show,
     update,
@@ -14,6 +15,7 @@ const {
 
 // --- Paths relative to /api/tasks ---
 router.post("/", create);
+router.post("/bulk", bulkCreate);
 router.get("/", index);
 router.get("/:id", show);
 router.patch("/:id", update);
