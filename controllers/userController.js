@@ -38,12 +38,45 @@ const register = async (req, res, next) => {
     const hashedPassword = await hashPassword(password);
 
     // save the user to the users table
-    let user = null;
     try {
-        user = await prisma.user.create({
-            data: { name, email, hashedPassword },
-            select: { name: true, email: true, id: true }//only these fields come back
-        });  
+        const result = await prisma.$transaction(async (tx) => {
+            // create the user account
+            const newUser = await tx.user.create({
+                data: { name, email, hashedPassword },
+                select: { id: true, email: true, name: true, createdAt: true },
+            });
+
+            // welcome tasks
+            const welcomeTaskData = [
+                { title: "Complete your profile", userId: newUser.id, priority: "medium" },
+                { title: "Add your first task", userId: newUser.id, priority: "high" },
+                { title: "Explore the app", userId: newUser.id, priority: "low" },
+            ];
+            // batch insert for all three
+            await tx.task.createMany({ data: welcomeTaskData });
+
+            // fetch the created tasks to send back
+            const welcomeTasks = await tx.task.findMany({
+                where: {
+                    userId: newUser.id,
+                    title: { in: welcomeTaskData.map((t) => t.title) },
+                },
+                select: { id: true, title: true, isCompleted: true, userId: true, priority: true },
+            });
+
+            // once the transaction commits you get the result
+            return { user: newUser, welcomeTasks }
+        });
+
+        // Mark the user as logged  in
+        global.user_id = result.user.id;
+
+        res.status(201).json({
+            user: result.user,
+            welcomeTasks: result.welcomeTasks,
+            transactionStatus: "success",
+        });
+        return;
     } catch (err) {
         // P2002 = Prisma code for UNIQUE rule was broken
         if (err.name === "PrismaClientKnownRequestError" && err.code === "P2002") {
@@ -52,11 +85,6 @@ const register = async (req, res, next) => {
         // any other database error goes to the global error handler
         return next(err);
     }
-
-    // Mark the user as logged in
-    global.user_id = user.id;
-    // 201 created response with name and email
-    res.status(201).json({ name: user.name, email: user.email });
 };
 
 // Logon - added async to be able to use await
@@ -98,4 +126,45 @@ const logoff = (req, res) => {
     res.status(200).json({ message: "Logged off." });
 };
 
-module.exports = { register, logon, logoff };
+// show one user, up to 5 of their incomplete tasks (eager loading)
+const show = async (req, res) => {
+    // route params arrive as strings so convert to a number
+    const userId = parseInt(req.params?.id);
+
+    // valid number check - 400
+    if(isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid user ID." });
+    }
+
+    // auth - user can only view their own record: 403
+    if (userId !== global.user_id) {
+        // 403 could indicate the user exists, should use a 404 not found instead! 
+        return res.status(403).json({ message: "Forbidden." });
+    }
+
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+            id: true,
+            name: true,
+            email: true,
+            createdAt: true,
+            // hashedPassword not included
+            Task: {
+                where: { isCompleted: false },   // only incomplete tasks
+                select: { id: true, title: true, priority: true, createdAt: true },
+                orderBy: { createdAt: "desc" },  // newest first
+                take: 5,                         // at most 5
+            },
+        },
+    });
+
+    // user was deleted while still logged in: 404
+    if (!user) {
+        return res.status(404).json({ message: "User not found." });
+    }
+
+    res.status(200).json(user);
+};
+
+module.exports = { register, logon, logoff, show };

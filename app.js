@@ -1,6 +1,7 @@
 // Imports
 const express = require("express");
 const userRoutes = require("./routes/userRoutes");
+const analyticsRoutes = require("./routes/analyticsRoutes");
 const notFound = require("./middleware/not-found");
 const errorHandler = require("./middleware/error-handler");
 const timeRouter = require("./routes/timeRoutes");
@@ -42,6 +43,7 @@ app.get("/health", async (req, res) => {
 
 app.use("/api/users", userRoutes);//public routes
 app.use("/api/tasks", authMiddleware, taskRouter);//protected routes
+app.use("/api/analytics", authMiddleware, analyticsRoutes); //protected routes
 
 // not found error handling must be last
 app.use(notFound);
