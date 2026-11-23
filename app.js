@@ -13,9 +13,6 @@ const prisma = require("./db/prisma");
 // App & Middleware
 const app = express();
 
-// logged-in user id
-global.user_id = null;
-
 // body parsing must come before routes
 app.use(express.json());
 

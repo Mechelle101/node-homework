@@ -114,7 +114,7 @@ exports.create = async (req, res, next) => {
     let task = null;
     try{
         task = await prisma.task.create({ 
-            data: { ...value, userId: global.user_id },
+            data: { ...value, userId: req.user.id },
             select: { id: true, title: true, isCompleted: true, priority: true, createdAt: true }
         });
     } catch (err) {
@@ -153,7 +153,7 @@ exports.bulkCreate = async (req, res, next) => {
             title: value.title,
             isCompleted: value.isCompleted || false,
             priority: value.priority || "medium",
-            userId: global.user_id
+            userId: req.user.id
         });
     }
 
@@ -173,7 +173,6 @@ exports.bulkCreate = async (req, res, next) => {
     }
 };
 
-
 exports.index = async (req, res) => {
     // pagination - read page and limit from the query
     const paging = getPagination(req.query);
@@ -183,7 +182,7 @@ exports.index = async (req, res) => {
     const { page, limit, skip } = paging;
 
     // filters - build the where obj 
-    const filters = buildTaskWhere(req.query, global.user_id);
+    const filters = buildTaskWhere(req.query, req.user.id);
     if(filters.error) {
         return res.status(400).json({ message: filters.error });
     }
@@ -226,7 +225,7 @@ exports.show = async (req, res) => {
 
     // find the task id and logged in user
     const task = await prisma.task.findUnique({
-        where: { id: taskId, userId: global.user_id },
+        where: { id: taskId, userId: req.user.id },
         select: { 
             id: true, 
             title: true, 
@@ -271,7 +270,7 @@ exports.update = async (req, res, next) => {
         data: value,
         where: {
             id: taskId,
-            userId: global.user_id,
+            userId: req.user.id,
         },
         select: { id: true, title: true, isCompleted: true, priority: true, createdAt: true }
      });
@@ -297,7 +296,7 @@ exports.deleteTask = async (req, res, next) => {
     let task = null;
     try{ 
         task = await prisma.task.delete({
-            where: { id: taskId, userId: global.user_id },
+            where: { id: taskId, userId: req.user.id },
             select: { id: true, title: true, isCompleted: true, priority: true, createdAt: true }
         });
     } catch(err) {
