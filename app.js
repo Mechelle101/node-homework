@@ -6,7 +6,7 @@ const analyticsRoutes = require("./routes/analyticsRoutes");
 const notFound = require("./middleware/not-found");
 const errorHandler = require("./middleware/error-handler");
 const timeRouter = require("./routes/timeRoutes");
-const authMiddleware = require("./middleware/auth");
+const jwtMiddleware = require("./middleware/jwtMiddleware");
 const taskRouter = require("./routes/taskRoutes");
 const prisma = require("./db/prisma");
 
@@ -43,8 +43,8 @@ app.get("/health", async (req, res) => {
 });
 
 app.use("/api/users", userRoutes);//public routes
-app.use("/api/tasks", authMiddleware, taskRouter);//protected routes
-app.use("/api/analytics", authMiddleware, analyticsRoutes); //protected routes
+app.use("/api/tasks", jwtMiddleware, taskRouter);//protected routes
+app.use("/api/analytics", jwtMiddleware, analyticsRoutes); //protected routes
 
 // not found error handling must be last
 app.use(notFound);
