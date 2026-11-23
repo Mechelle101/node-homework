@@ -4,6 +4,9 @@ const util = require("util");
 const scrypt = util.promisify(crypto.scrypt);
 const { userSchema } = require("../validation/userSchema");
 const prisma = require("../db/prisma");
+// JWT helpers
+const { randomUUID } = require("crypto");
+const jwt = require("jsonwebtoken");
 
 // Password helpers
 // creates random salt, hashes the password, returns "salt:hash"
@@ -20,6 +23,25 @@ async function comparePassword(inputPassword, storedHash) {
     const derivedKey = await scrypt(inputPassword, salt, 64);
     return crypto.timingSafeEqual(keyBuffer, derivedKey);
 }
+
+const cookieFlags = (req) => {
+    return {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production", //when HTTPS available
+        sameSite: "Strict",
+    };
+};
+
+const setJwtCookie = (req, res, user) => {
+    // sign JWT, every logon gets a new UUID.
+    const payload = { id: user.id, csrfToken: randomUUID() };
+    //builds header, how the token is signed, adding timestamps to payload
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "1h" });
+    // set cookie. the production vs testing flags need to be different
+    res.cookie("jwt", token, { ...cookieFlags(req), maxAge: 3600000 }); //expire 1h
+    // needed in the body returned by logon() and register()
+    return payload.csrfToken;
+};
 
 // register route handler (req: what the client sent, res: my reply)
 // the function needs to be async to be able to use await, needed for PW hashing
@@ -68,13 +90,15 @@ const register = async (req, res, next) => {
             return { user: newUser, welcomeTasks }
         });
 
-        // Mark the user as logged  in
-        global.user_id = result.user.id;
+        // the jwt cookie now marks the user as logged in
+        const csrfToken = setJwtCookie(req, res, result.user);
 
         res.status(201).json({
             user: result.user,
             welcomeTasks: result.welcomeTasks,
             transactionStatus: "success",
+            // front end sends this back in X-CSRF-TOKEN header
+            csrfToken,
         });
         return;
     } catch (err) {
@@ -113,16 +137,17 @@ const logon = async (req, res) => {
     if(!goodCredentials) {
         return res.status(401).json({ message: "Authentication failed." });
     }
-    // getting just the id number
-    global.user_id = foundUser.id;
-    // the status is 200/ok because it does not create anything new
-    res.status(200).json({ name: foundUser.name, email: foundUser.email });
+
+    // set the jwt cookie
+    const csrfToken = setJwtCookie(req, res, foundUser);
+    // the status is a 200/ok because it does not create anything new
+    res.status(200).json({ name: foundUser.name, email: foundUser.email, csrfToken });
 };
 
 // Logoff
 const logoff = (req, res) => {
-    // sets the user to empty
-    global.user_id = null;
+    // clear the cookie using the same flags it was set with
+    res.clearCookie("jwt", cookieFlags(req));
     res.status(200).json({ message: "Logged off." });
 };
 
@@ -137,7 +162,7 @@ const show = async (req, res) => {
     }
 
     // auth - user can only view their own record: 403
-    if (userId !== global.user_id) {
+    if (userId !== req.user.id) {
         // 403 could indicate the user exists, should use a 404 not found instead! 
         return res.status(403).json({ message: "Forbidden." });
     }

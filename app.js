@@ -1,4 +1,5 @@
 // Imports
+require("dotenv").config(); //this is needed first...
 const express = require("express");
 const userRoutes = require("./routes/userRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
