@@ -8,6 +8,11 @@ const errorHandler = (err, req, res, next) => {
         console.error("Couldn't connect to the database. Is it running?")
     }
 
+    // P2003 - FK failed - user doesn't exist
+    if(err.code === "P2003") {
+        return res.status(400).json({ message: "Invalid reference - user does not exist." });
+    }
+
     // full details will go to the server log, for devs
     console.error(err);
 

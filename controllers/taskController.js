@@ -118,10 +118,7 @@ exports.create = async (req, res, next) => {
             select: { id: true, title: true, isCompleted: true, priority: true, createdAt: true }
         });
     } catch (err) {
-        // P2003 = FK failed: no user exist with the the userId
-        if(err.code === "P2003") {
-            return res.status(400).json({ message: "Invalid reference - the user does not exist" });
-        }
+        // all database errors go to the global error handler
         return next(err);
     }
     // getting the task row from the DB
