@@ -1,24 +1,43 @@
 // Imports
+require("dotenv").config(); //this is needed first...
 const express = require("express");
 const userRoutes = require("./routes/userRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
 const notFound = require("./middleware/not-found");
 const errorHandler = require("./middleware/error-handler");
 const timeRouter = require("./routes/timeRoutes");
-const authMiddleware = require("./middleware/auth");
+const jwtMiddleware = require("./middleware/jwtMiddleware");
 const taskRouter = require("./routes/taskRoutes");
 const prisma = require("./db/prisma");
 
 // App & Middleware
 const app = express();
 
-// logged-in user id
-global.user_id = null;
+// --- Security setup ---
+// trust the hosting proxy
+app.set("trust proxy", 1);
+const helmet = require("helmet");
+const { xss } = require("express-xss-sanitizer");
+const rateLimiter = require("express-rate-limit");
+const cookieParser = require("cookie-parser");
 
+// rate limiter first
+app.use(
+    rateLimiter({
+        windowMs: 15*60*1000, //15 minutes
+        max: 100, //limits each IP to 100 requests, prevents DoS
+    }),
+);
+
+// security related response header
+app.use(helmet());
 // body parsing must come before routes
 app.use(express.json());
+// parse the cookie header into req.cookie
+app.use(cookieParser());
+// sanitize incoming data, comes after the parsers so req.body exists
+app.use(xss());
 
-// Routes
 // Router must come after express.json() — middleware runs in order,
 // express.json() must come before the routes so that erq.body exists in the controllers
 app.use("/api", timeRouter);
@@ -42,8 +61,8 @@ app.get("/health", async (req, res) => {
 });
 
 app.use("/api/users", userRoutes);//public routes
-app.use("/api/tasks", authMiddleware, taskRouter);//protected routes
-app.use("/api/analytics", authMiddleware, analyticsRoutes); //protected routes
+app.use("/api/tasks", jwtMiddleware, taskRouter);//protected routes
+app.use("/api/analytics", jwtMiddleware, analyticsRoutes); //protected routes
 
 // not found error handling must be last
 app.use(notFound);

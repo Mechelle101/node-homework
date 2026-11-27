@@ -4,7 +4,7 @@ const express = require("express"); //needed for routers
 // destructuring the functions needed
 const { register, logon, logoff, show } = require("../controllers/userController");
 // auth middleware, routes that need it
-const authMiddleware = require("../middleware/auth");
+const jwtMiddleware = require("../middleware/jwtMiddleware");
 
 // router setup
 // a mini app holding only the needed routes
@@ -16,9 +16,9 @@ const router = express.Router();
 router.post("/register", register);
 router.post("/logon", logon);
 //this is post because it also changes state
-router.post("/logoff", logoff); 
+router.post("/logoff", jwtMiddleware, logoff); 
 // protected route, show when logged in (route level middleware)
-router.get("/:id", authMiddleware, show);
+router.get("/:id", jwtMiddleware, show);
 
 // exports
 module.exports = router;
