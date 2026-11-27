@@ -46,7 +46,6 @@ const setJwtCookie = (req, res, user) => {
 // register route handler (req: what the client sent, res: my reply)
 // the function needs to be async to be able to use await, needed for PW hashing
 const register = async (req, res, next) => {
-
     // first validate, if theres not a request body...
     if(!req.body) req.body = {};
     const { error, value } = userSchema.validate(req.body, { abortEarly: false });
@@ -94,11 +93,13 @@ const register = async (req, res, next) => {
         const csrfToken = setJwtCookie(req, res, result.user);
 
         res.status(201).json({
+            name: result.user.name,
+            email: result.user.email,
+            // front end sends this back in X-CSRF-TOKEN header
+            csrfToken,
             user: result.user,
             welcomeTasks: result.welcomeTasks,
             transactionStatus: "success",
-            // front end sends this back in X-CSRF-TOKEN header
-            csrfToken,
         });
         return;
     } catch (err) {
@@ -141,7 +142,11 @@ const logon = async (req, res) => {
     // set the jwt cookie
     const csrfToken = setJwtCookie(req, res, foundUser);
     // the status is a 200/ok because it does not create anything new
-    res.status(200).json({ name: foundUser.name, email: foundUser.email, csrfToken });
+    res.status(200).json({ 
+        name: foundUser.name, 
+        email: foundUser.email, 
+        csrfToken 
+    });
 };
 
 // Logoff
